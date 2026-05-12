@@ -1,0 +1,185 @@
+package main.controller;
+import main.model.BlackjackModel;
+import main.util.AudioManager;
+import main.view.BlackjackView;
+import main.view.MainMenuView;
+import java.awt.Color;
+
+import java.awt.Dimension;
+
+import javax.swing.*;
+
+/**
+ * La classe BlackjackController fa interagire il Model del gioco
+ * ({@link BlackjackModel}),
+ * la View ({@link BlackjackView}) e la riproduzione di file audio
+ * ({@link AudioManager}).
+ * 
+ * <p>
+ * Pattern utilizzati:
+ * - MVC (Model-View-Controller): come parte del Controller per gestire la
+ * logica di controllo del gioco;
+ * - Singleton: per garantire un'unica istanza del controller;
+ * - Observer: per fare interagire il Model e la View.
+ * </p>
+ * 
+ * @see BlackjackModel
+ * @see BlackjackView
+ * @see AudioManager
+ * @see MainMenuView
+ */
+
+public class BlackjackController {
+	private BlackjackModel model;
+    private BlackjackView view;
+    private AudioManager audioManager;
+    private static BlackjackController instance;
+
+    /**
+     * Costruttore della classe BlackjackController.
+     * 
+     * <p>
+     * Inizializza il Model e la View, implementa gli Action Listener per i pulsanti
+     * "Pesca Carta" e "Stai", e avvia il gioco.
+     * Inoltre, gestisce l'audio utilizzando l'{@link AudioManager}.
+     * </p>
+     * 
+     * @param model    Il modello del gioco Blackjack.
+     * @param view     La vista associata al gioco Blackjack.
+     * @param mainMenu Il menu principale dell'applicazione.
+     */
+    @SuppressWarnings("deprecation")
+    public BlackjackController(BlackjackModel model, BlackjackView view, MainMenuView mainMenu) {
+        this.model = model;
+        this.view = view;
+        
+        instance = this;
+
+        model.addObserver(view);
+
+        view.getHitButton().addActionListener(e -> hit());
+        view.getStandButton().addActionListener(e -> stand());
+        view.getRestartButton().addActionListener(e -> restartGame());
+
+        startGame();
+    }
+
+    /**
+     * Metodo per avviare una nuova partita.
+     * 
+     * <p>
+     * Chiama il metodo per iniziare il gioco tramite il Model, riproduce
+     * il file audio di sottofondo per la partita e rende visibile la View.
+     * </p>
+     */
+    private void startGame() {
+        model.startGame();
+        view.setVisible(true);
+    }
+
+    /**
+     * Metodo che gestisce l'azione "Pesca Carta" del giocatore.
+     * 
+     * <p>
+     * 
+     * Se il giocatore sballa, termina il suo turno chiamando il metodo
+     * {@link #stand()}.
+     * </p>
+     */
+    private void hit() {
+        boolean busted = model.hit();
+        if (busted) {
+            JOptionPane.showMessageDialog(view, "Hai sballato! Il tuo turno è finito.", "Sballato",
+                    JOptionPane.INFORMATION_MESSAGE);
+            stand();
+        }
+    }
+
+    /**
+     * Metodo che gestisce l'azione "Stai" del giocatore.
+     * 
+     * <p>
+     *
+     * </p>
+     */
+    private void stand() {
+        model.stand();
+        playNextTurn();
+    }
+
+    /**
+     * Metodo che gestisce il turno successivo.
+     * 
+     * <p>
+     * Se il gioco è terminato, chiama il metodo {@link BlackjackModel#endRound()}.
+     * Se non dovesse essere il turno del giocatore umano, avvia il turno
+     * dei bot e del banco.
+     * </p>
+     */
+    private void playNextTurn() {
+        if (model.isGameOver()) {
+            model.endRound();
+        } else if (!model.isHumanTurn()) {
+            playBotTurn();
+        }
+    }
+
+    /**
+     * Metodo che esegue il turno del bot e del banco in un thread separato.
+     * 
+     * <p>
+     * I bot e il banco attendono 2 secondi tra le azioni per simulare un possibile
+     * ragionamento sul pescare la carta o stare.
+     * </p>
+     */
+    private void playBotTurn() {
+        new Thread(() -> {
+            while (!model.isGameOver() && !model.isHumanTurn()) {
+                try {
+                    Thread.sleep(2000);
+                    if (model.botWantsToHit()) {
+                        model.hit();
+                    } else {
+                        model.stand();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            if (model.isGameOver()) {
+                model.endRound();
+            }
+        }).start();
+    }
+
+    /**
+     * Metodo che riavvia la partita, ripristinando il round corrente.
+     * 
+     * <p>
+     * Questo metodo chiama il reset del round sul Model, permettendo di
+     * iniziare una nuova mano.
+     * </p>
+     */
+    public void restartGame() {
+        model.resetRound();
+        view.resetUI(); // Metodo per aggiornare l'interfaccia utente dopo il reset
+        view.enableGameButtons();
+    }
+
+    /**
+     * Getter che restituisce l'istanza Singleton di {@link BlackjackController}.
+     * 
+     * @return l'istanza attuale del Controller.
+     */
+    public static BlackjackController getInstance() {
+        return instance;
+    }
+
+    
+ 
+    
+}
+
+
+
+
